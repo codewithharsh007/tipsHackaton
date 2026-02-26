@@ -1,65 +1,113 @@
-import Image from "next/image";
+"use client";
+import { useState, useRef, useEffect } from "react";
+import { motion } from "framer-motion";
+import ModeSelector from "@/components/ModeSelector";
+import PromptChips from "@/components/PromptChips";
+import MessageList from "@/components/MessageList";
+import ChatInput from "@/components/ChatInput";
 
 export default function Home() {
+  const [mode, setMode] = useState("mentor");
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  const sendMessage = async (text) => {
+    const userMsg = typeof text === "string" ? text : input;
+    if (!userMsg.trim()) return;
+
+    setMessages((prev) => [...prev, { role: "user", text: userMsg }]);
+    setInput("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMsg, mode }),
+      });
+      const json = await res.json();
+
+      if (json.error) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "ai", type: "plain", mode, data: json.error },
+        ]);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { role: "ai", type: json.type, mode: json.mode, data: json.data },
+        ]);
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "ai",
+          type: "plain",
+          mode,
+          data: "Something went wrong. Please try again.",
+        },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="flex flex-col items-center px-4 pt-5 pb-3 h-full overflow-hidden gap-3">
+      {/* Hero */}
+      <motion.div
+        initial={{ opacity: 0, y: -15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="text-center shrink-0"
+      >
+        <h2 className="text-2xl font-bold text-gray-800">
+          Student Success Copilot 🎓
+        </h2>
+        <p className="text-gray-500 text-sm mt-0.5">
+          Ask doubts · Plan your study · Manage exam stress
+        </p>
+      </motion.div>
+
+      {/* Persona Selector */}
+      <div className="w-full max-w-6xl shrink-0">
+        <ModeSelector mode={mode} setMode={setMode} />
+      </div>
+
+      {/* Chat Box — flex-1 fills ALL remaining space exactly */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+        className="bg-[#e8e2d8] rounded-3xl w-full max-w-6xl flex flex-col shadow-md overflow-hidden flex-1 min-h-0"
+      >
+        {/* Messages — only this part scrolls */}
+        <MessageList
+          messages={messages}
+          loading={loading}
+          bottomRef={bottomRef}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.js file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+
+        {/* Pinned bottom section */}
+        <div className="shrink-0 bg-[#ddd6c8] px-4 pt-3 pb-1">
+          <PromptChips setInput={setInput} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <div className="shrink-0 bg-[#ddd6c8] px-4 pb-4 pt-2">
+          <ChatInput
+            input={input}
+            setInput={setInput}
+            onSend={sendMessage}
+            loading={loading}
+          />
         </div>
-      </main>
+      </motion.div>
     </div>
   );
 }
